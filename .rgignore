@@ -1,0 +1,18 @@
+# Heavy generated or vendor data. Query these explicitly when needed.
+generated/decompiled/
+tools/dnSpy-netframework/
+tools/dnSpy-netframework.zip
+
+# Build artifacts.
+src/**/bin/
+src/**/obj/
+mod/**/Assemblies/*.dll
+mod/**/Assemblies/*.pdb
+**/__pycache__/
+*.pyc
+
+# Runtime output.
+logs/
+
+# Large static knowledge JSON should be opened by exact file only.
+generated/static_knowledge/*.json

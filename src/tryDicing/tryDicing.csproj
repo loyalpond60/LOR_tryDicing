@@ -1,0 +1,85 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup>
+    <Configuration Condition=" '$(Configuration)' == '' ">Debug</Configuration>
+    <Platform Condition=" '$(Platform)' == '' ">AnyCPU</Platform>
+    <ProjectGuid>{7C0D2D14-227A-4E90-B08D-48E3B0F27D6C}</ProjectGuid>
+    <OutputType>Library</OutputType>
+    <RootNamespace>tryDicing</RootNamespace>
+    <AssemblyName>tryDicing</AssemblyName>
+    <TargetFrameworkVersion>v4.8</TargetFrameworkVersion>
+    <FileAlignment>512</FileAlignment>
+    <Deterministic>true</Deterministic>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Debug|AnyCPU' ">
+    <DebugSymbols>true</DebugSymbols>
+    <DebugType>full</DebugType>
+    <Optimize>false</Optimize>
+    <OutputPath>bin\Debug\</OutputPath>
+    <DefineConstants>DEBUG;TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup Condition=" '$(Configuration)|$(Platform)' == 'Release|AnyCPU' ">
+    <DebugType>pdbonly</DebugType>
+    <Optimize>true</Optimize>
+    <OutputPath>bin\Release\</OutputPath>
+    <DefineConstants>TRACE</DefineConstants>
+    <WarningLevel>4</WarningLevel>
+  </PropertyGroup>
+
+  <PropertyGroup>
+    <LibraryOfRuinaManagedDir Condition=" '$(LibraryOfRuinaManagedDir)' == '' ">F:\SteamLibrary\steamapps\common\Library Of Ruina\LibraryOfRuina_Data\Managed</LibraryOfRuinaManagedDir>
+  </PropertyGroup>
+
+  <ItemGroup>
+    <Reference Include="System" />
+    <Reference Include="System.Core" />
+    <Reference Include="Assembly-CSharp">
+      <HintPath>$(LibraryOfRuinaManagedDir)\Assembly-CSharp.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="UnityEngine.CoreModule">
+      <HintPath>$(LibraryOfRuinaManagedDir)\UnityEngine.CoreModule.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+    <Reference Include="0Harmony">
+      <HintPath>..\..\mod\tryDicing\Assemblies\0Harmony.dll</HintPath>
+      <Private>False</Private>
+    </Reference>
+  </ItemGroup>
+
+  <ItemGroup>
+    <Compile Include="Initializer.cs" />
+    <Compile Include="TryDicingLogger.cs" />
+    <Compile Include="AutoBattle\AutoBattleActionInvoker.cs" />
+    <Compile Include="AutoBattle\AutoBattleController.cs" />
+    <Compile Include="AutoBattle\AutoBattleProbePatch.cs" />
+    <Compile Include="AutoBattle\AutoBattleState.cs" />
+    <Compile Include="AutoBattle\AutoBattleStateProbe.cs" />
+    <Compile Include="AutoBattle\AutoBattleStateReader.cs" />
+    <Compile Include="AutoPlay\ActionExecutor.cs" />
+    <Compile Include="AutoPlay\ActionCandidate.cs" />
+    <Compile Include="AutoPlay\AutoPlayCache.cs" />
+    <Compile Include="AutoPlay\AutoPlayController.cs" />
+    <Compile Include="AutoPlay\AutoPlayLog.cs" />
+    <Compile Include="AutoPlay\AutoPlayPatch.cs" />
+    <Compile Include="AutoPlay\BattlePlan.cs" />
+    <Compile Include="AutoPlay\BattlePlanExecutor.cs" />
+    <Compile Include="AutoPlay\BattleSnapshot.cs" />
+    <Compile Include="AutoPlay\BattleSnapshotReader.cs" />
+    <Compile Include="AutoPlay\DiceProbabilityCalculator.cs" />
+    <Compile Include="AutoPlay\DiceProbabilityProfile.cs" />
+    <Compile Include="AutoPlay\InteractionType.cs" />
+    <Compile Include="AutoPlay\LegalActionFinder.cs" />
+    <Compile Include="AutoPlay\LegalActionSearchReport.cs" />
+    <Compile Include="AutoPlay\LegalActionSearchResult.cs" />
+    <Compile Include="AutoPlay\LocalActionEvaluation.cs" />
+    <Compile Include="AutoPlay\LocalActionEvaluator.cs" />
+    <Compile Include="AutoPlay\SpeedDiceAction.cs" />
+    <Compile Include="AutoPlay\TacticalPlanner.cs" />
+  </ItemGroup>
+
+  <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />
+</Project>

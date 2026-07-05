@@ -1,0 +1,20 @@
+# Build artifacts
+src/**/bin/
+src/**/obj/
+**/__pycache__/
+*.pyc
+
+# Runtime logs
+logs/*.log
+
+# Packaged binaries copied for local mod testing
+mod/**/Assemblies/*.dll
+mod/**/Assemblies/*.pdb
+
+# Large local tooling
+tools/dnSpy-netframework/
+tools/dnSpy-netframework.zip
+
+# Generated reference extraction output
+generated/decompiled/
+generated/static_knowledge/*.json
