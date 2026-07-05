@@ -64,6 +64,137 @@ Next scene
   -> repeat
 ```
 
+## Original Battle Phase Semantics
+
+Source reference:
+
+```text
+generated/decompiled/Assembly-CSharp/Assembly-CSharp/StageController.cs
+```
+
+The original battle loop is a phase-driven state machine owned by
+`StageController`. `OnFixedUpdateLate(float deltaTime)` dispatches behavior based
+on the current `StagePhase`.
+
+The normal scene flow can be summarized as:
+
+```text
+RoundStartPhase_UI
+  -> RoundStartPhase_System
+  -> SortUnitPhase
+  -> DrawCardPhase
+  -> ApplyEnemyCardPhase
+  -> ApplyLibrarianCardPhase
+  -> ArrangeEquippedCards
+  -> ChangeMapPhase, when a card requests a map change
+  -> ActivateStartBattleEffect
+  -> WaitStartBattleEffect
+  -> SetCurrentDiceAction
+  -> CheckFarAreaPlay
+  -> ExecuteFarAreaPlay / EndFarAreaPlay, when a mass attack exists
+  -> MoveUnits
+  -> WaitUnitsArrive
+  -> ExecuteParrying / EndParrying, when two selected cards clash
+  -> ExecuteOneSideAction / EndOneSideAction, when no clash exists
+  -> ProcessViewAction
+  -> SetCurrentDiceAction, until no actions remain
+  -> RoundEndPhase
+  -> RoundStartPhase_UI
+```
+
+Important details:
+
+```text
+SortUnitPhase:
+  Rolls speed dice for alive units and then advances to DrawCardPhase.
+
+DrawCardPhase:
+  Draws scene cards for player units and advances to ApplyEnemyCardPhase.
+
+ApplyEnemyCardPhase:
+  Automatically assigns enemy cards for each usable enemy speed die.
+  Non-controllable player units are also assigned here.
+  Then the phase advances to ApplyLibrarianCardPhase.
+
+ApplyLibrarianCardPhase:
+  Waits for player card assignment.
+  Manual input, vanilla auto-card, or this mod can fill player card slots.
+
+ArrangeEquippedCards:
+  Collects all assigned BattlePlayingCardDataInUnitModel entries.
+  Sorts them by range and speed value.
+
+SetCurrentDiceAction:
+  Picks each unit's current actionable card from the arranged list.
+  If no actions remain, the scene moves toward RoundEndPhase.
+
+CheckFarAreaPlay:
+  Gives mass attacks priority before ordinary movement and clash resolution.
+
+MoveUnits / WaitUnitsArrive:
+  Moves acting units and chooses the next arrived highest-speed action.
+  If the target slot has a matching opposing action, a clash starts.
+  Otherwise, a one-sided action starts.
+
+ProcessViewAction:
+  Waits for the action visualization to finish, processes achievements, and
+  returns to SetCurrentDiceAction for the next action.
+
+RoundEndPhase:
+  Runs round-end hooks, emotion checks, no-card checks, unit reset, card ability
+  cleanup, delayed effects, and then returns to RoundStartPhase_UI.
+```
+
+## Card Assignment Versus Resolution
+
+Card assignment and combat resolution are separate engine stages.
+
+During assignment:
+
+```text
+BattleAllyCardDetail.PlayTurnAutoForPlayer(int idx)
+  -> chooses a card and target for one player speed die in vanilla auto mode
+  -> calls BattlePlayingCardSlotDetail.AddCard(...)
+```
+
+`AddCard(...)` creates or updates a `BattlePlayingCardDataInUnitModel` for the
+chosen speed die. It records:
+
+```text
+owner
+card
+target
+slotOrder
+targetSlotOrder
+speedDiceResultValue
+earlyTarget
+earlyTargetOrder
+card ability script
+dice behavior queue
+```
+
+It may also reserve or spend card resources and trigger card apply hooks.
+
+During resolution:
+
+```text
+StageController
+  -> arranges all assigned cards
+  -> creates current dice actions
+  -> executes mass attacks, clashes, or one-sided actions
+  -> removes used card data
+  -> repeats until no actions remain
+```
+
+This distinction matters for AutoPlay:
+
+```text
+AutoPlay should decide and validate assignments.
+AutoBattle should advance phases.
+The original engine should still resolve dice, card scripts, passives, damage,
+stagger, death, emotion, and round-end effects.
+```
+
 ## Original Methods Invoked
 
 ### CheckInput(bool forcelyInput)

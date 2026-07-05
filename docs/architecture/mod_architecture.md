@@ -81,6 +81,7 @@ Current files:
 ```text
 src/tryDicing/AutoPlay/AutoPlayPatch.cs
 src/tryDicing/AutoPlay/AutoPlayController.cs
+src/tryDicing/AutoPlay/DeclaredAction.cs
 src/tryDicing/AutoPlay/BattleSnapshotReader.cs
 src/tryDicing/AutoPlay/ActionCandidate.cs
 src/tryDicing/AutoPlay/InteractionType.cs
@@ -105,6 +106,9 @@ AutoPlayController:
 
 BattleSnapshotReader:
   Reads current battle state from original game objects.
+
+DeclaredAction:
+  Summarizes an already assigned battle page on a unit speed die as observed scene data.
 
 LegalActionFinder:
   Lists first-version legal candidate actions for one actor speed die.

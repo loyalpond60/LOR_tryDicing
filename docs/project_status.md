@@ -29,6 +29,7 @@ Assign a card and target for a player speed die.
 Advance battle flow automatically through StageController phases.
 Fall back to vanilla behavior when the custom action selection fails.
 Write tryDicing logs to both Unity Player.log and a workspace log file.
+Read first-version DeclaredAction summaries from already assigned speed-dice cards.
 Enumerate first-version local action candidates.
 Evaluate first-version local action scores.
 Estimate first-version card dice power through a dedicated DiceProbabilityCalculator.

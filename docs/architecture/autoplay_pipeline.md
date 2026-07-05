@@ -147,13 +147,21 @@ Original Library of Ruina battle objects.
 Object:
 
 ```text
-Player units, enemy units, hand cards, light, HP, stagger, and speed dice data used by the prototype.
+Player units, enemy units, declared actions, hand cards, light, HP, stagger, and speed dice data used by the prototype.
 ```
 
 Effect:
 
 ```text
 Creates a simplified snapshot that custom strategy code can read without spreading game-object access everywhere.
+```
+
+Current declared-action read:
+
+```text
+BattleSnapshotReader reads BattlePlayingCardDataInUnitModel entries from
+unit.cardSlotDetail.cardAry and stores them as DeclaredAction summaries.
+DeclaredAction is observed scene data only. It does not assign threat scores.
 ```
 
 ### TacticalPlanner

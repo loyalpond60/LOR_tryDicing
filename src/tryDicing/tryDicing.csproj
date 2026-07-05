@@ -69,6 +69,7 @@
     <Compile Include="AutoPlay\BattlePlanExecutor.cs" />
     <Compile Include="AutoPlay\BattleSnapshot.cs" />
     <Compile Include="AutoPlay\BattleSnapshotReader.cs" />
+    <Compile Include="AutoPlay\DeclaredAction.cs" />
     <Compile Include="AutoPlay\DiceProbabilityCalculator.cs" />
     <Compile Include="AutoPlay\DiceProbabilityProfile.cs" />
     <Compile Include="AutoPlay\InteractionType.cs" />

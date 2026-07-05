@@ -391,13 +391,75 @@ Estimating irreversible gain and irreversible loss prevention.
 Detecting when boss mechanics distort ordinary exchange value.
 ```
 
+## Engine Phase Mapping
+
+The strategy model is intentionally higher-level than the original
+`StageController` phase machine, but the concepts should map cleanly onto engine
+execution.
+
+Source reference:
+
+```text
+docs/architecture/auto_battle_flow.md
+generated/decompiled/Assembly-CSharp/Assembly-CSharp/StageController.cs
+```
+
+Mapping:
+
+```text
+S_t:
+  The visible state after enemy cards are assigned and before player assignment
+  is finalized, normally during ApplyLibrarianCardPhase.
+
+Action a:
+  A proposed BattlePlayingCardDataInUnitModel assignment for one actor speed die.
+
+Legal action generation:
+  Checks whether BattlePlayingCardSlotDetail.AddCard(...) would be a valid
+  assignment after card, light, speed die, target, and target-slot constraints.
+
+Plan P_t:
+  The complete set of player-side assignments made before
+  CompleteApplyingLibrarianCardPhase advances to ArrangeEquippedCards.
+
+Execution boundary:
+  ActionExecutor writes selected assignments through the original card slot API.
+
+Resolution R(S_t, P_t):
+  The original engine phases after assignment:
+    ArrangeEquippedCards
+    ChangeMapPhase, when needed
+    ActivateStartBattleEffect
+    WaitStartBattleEffect
+    SetCurrentDiceAction
+    CheckFarAreaPlay
+    ExecuteFarAreaPlay / EndFarAreaPlay
+    MoveUnits
+    WaitUnitsArrive
+    ExecuteParrying / EndParrying
+    ExecuteOneSideAction / EndOneSideAction
+    ProcessViewAction
+    RoundEndPhase
+```
+
+Important boundary:
+
+```text
+The planner selects assignments.
+The game engine resolves dice, card scripts, passives, buffs, damage, stagger,
+death, emotion, and round-end effects.
+```
+
+This means a strategy plan should be treated as an input to the engine's
+resolution process, not as a direct prediction of the next state.
+
 ## Existing Code Mapping
 
 Core model mapping:
 
 ```text
 S_t:
-  BattleSnapshot
+  BattleSnapshot, including first-version DeclaredAction summaries for already assigned cards.
 
 a:
   ActionCandidate
