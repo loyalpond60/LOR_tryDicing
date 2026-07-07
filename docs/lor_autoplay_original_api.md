@@ -601,6 +601,16 @@ target.IsBreakLifeZero()
 
 ## Resistance
 
+Source inspected:
+
+```text
+generated/decompiled/Assembly-CSharp/Assembly-CSharp/AtkResist.cs
+generated/decompiled/Assembly-CSharp/Assembly-CSharp/BookModel.cs
+generated/decompiled/Assembly-CSharp/Assembly-CSharp/BattleDiceBehavior.cs
+generated/decompiled/Assembly-CSharp/Assembly-CSharp/BattleUnitModel.cs
+generated/decompiled/Assembly-CSharp/Assembly-CSharp/BattleUnitBreakDetail.cs
+```
+
 Relevant methods on `BattleUnitModel`:
 
 ```csharp
@@ -616,27 +626,139 @@ BehaviourDetail.Penetrate
 BehaviourDetail.Hit
 ```
 
-How we use it:
+Exact resistance rate table:
 
 ```text
-When estimating damage:
-  use GetResistHP(dice.Detail)
-
-When estimating stagger damage:
-  use GetResistBP(dice.Detail)
-```
-
-Possible scoring multipliers for first draft:
-
-```text
+Weak        2.0
 Vulnerable  1.5
-Weak        1.25
 Normal      1.0
 Endure      0.5
 Resist      0.25
+Immune      0.0
+None/other  1.0
 ```
 
-These are strategy heuristics, not confirmed exact damage formulas.
+HP and stagger resistance are separate:
+
+```text
+HP damage:
+  use target.GetResistHP(dice.Detail)
+
+Stagger / break damage:
+  use target.GetResistBP(dice.Detail)
+```
+
+Resistance lookup order:
+
+```text
+If target is staggered / broken and passives do not prevent break-resist change:
+  return Weak
+
+Otherwise:
+  base resistance = target book item's HP or BP resistance for the dice detail
+  passiveDetail may modify it
+  emotionDetail may modify it
+  bufListDetail may modify it
+```
+
+Attack dice HP damage pipeline, simplified:
+
+```text
+rawHp =
+  diceResultValue
+  - guardDamageReduction
+  + diceStatBonus.dmg
+  + gift damage bonus for the dice detail
+  - target.GetDamageReduction(behavior)
+
+rawHp *= max(0, 1 + (diceStatBonus.dmgRate + target.GetDamageIncreaseRate()) / 100)
+rawHp *= target.GetDamageRate()
+
+if target takes double damage:
+  rawHp *= 2
+
+if attacker gives double damage:
+  rawHp *= 2
+
+if the damage is ordinary dice damage:
+  rawHp *= BookModel.GetResistRate(target.GetResistHP(dice.Detail))
+
+rawHp = target.ChangeDamage(attacker, rawHp)
+
+if the card ability is true damage:
+  rawHp = diceResultValue
+
+finalHpBeforeTakeDamage = (int)rawHp
+```
+
+Then the engine clamps values below 1 to 0, applies invalidity / far-attack
+immunity / invincible checks, and calls:
+
+```csharp
+target.TakeDamage(finalHpBeforeTakeDamage, DamageType.Attack, attacker, KeywordBuf.None);
+```
+
+`TakeDamage(...)` can still apply:
+
+```text
+BeforeTakeDamage hooks
+DmgFactor multipliers from emotion / passive / buffs
+GetDamageReductionAll
+HP invincibility
+damage immunity
+minimum HP / immortal behavior
+death checks
+```
+
+Attack dice stagger / break damage pipeline, simplified:
+
+```text
+rawBreak =
+  diceResultValue
+  - guardDamageReduction
+  + diceStatBonus.breakDmg
+  - target.GetBreakDamageReduction(behavior)
+
+rawBreak *= 1 + (diceStatBonus.breakRate + target.GetBreakDamageIncreaseRate()) / 100
+rawBreak *= target.GetBreakDamageRate()
+rawBreak *= BookModel.GetResistRate(target.GetResistBP(dice.Detail))
+
+if the card ability is true damage:
+  rawBreak = diceResultValue
+
+finalBreakBeforeTakeBreakDamage = (int)rawBreak
+```
+
+Then the engine clamps values below 1 to 0, applies invalidity / far-attack
+immunity / invincible checks, and calls:
+
+```csharp
+target.TakeBreakDamage(finalBreakBeforeTakeBreakDamage, DamageType.Attack, attacker, target.GetResistBP(dice.Detail), KeywordBuf.None);
+```
+
+`TakeBreakDamage(...)` can still apply:
+
+```text
+BreakDmgFactor multipliers from emotion / passive / buffs
+BP invincibility
+break-damage immunity
+GetBreakDamageReductionAll
+BeforeTakeBreakDamage hooks
+break-gauge loss and break-life loss
+```
+
+Important special cases:
+
+```text
+Percent damage:
+  Does not use the target's current HP resistance directly.
+  BattleDiceBehavior uses MaxHp * percent and multiplies by Weak resistance rate,
+  then applies the percent-damage maximum cap.
+
+True damage:
+  Replaces both HP and break damage with the dice result value after the ordinary
+  resistance multiplication point.
+```
 
 ## Target Changing / Interception
 
@@ -661,6 +783,44 @@ CanChangeAttackTarget(target, mySlot, targetSlot)
   tells whether our speed die can redirect/intercept the target's action.
 
 If true and the target slot is attacking an ally, that candidate action should get a high score.
+```
+
+Verified original logic:
+
+```text
+CanChangeAttackTarget(target, myIndex, targetIndex):
+  if target.AllowTargetChanging(self, targetIndex) is false:
+    return false
+
+  if target is Enemy and StageController blocks enemy aggro change:
+    return false
+
+  if self.DirectAttack():
+    return false
+
+  if target.IsTauntable() is false:
+    return false
+
+  if self.emotionDetail.CanForcelyAggro():
+    return true
+
+  return self.GetSpeed(myIndex) > target.GetSpeed(targetIndex)
+```
+
+Speed comparison meaning:
+
+```text
+self speed > target speed:
+  can redirect/intercept if the other checks pass.
+
+self speed == target speed:
+  cannot redirect by ordinary speed comparison.
+
+self speed < target speed:
+  cannot redirect by ordinary speed comparison.
+
+CanForcelyAggro:
+  bypasses the speed comparison after the earlier target-changing checks pass.
 ```
 
 Scope:

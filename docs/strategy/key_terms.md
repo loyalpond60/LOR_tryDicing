@@ -7,23 +7,23 @@ It exists to keep `objective`, `plan`, `resource`, and `score` from becoming vag
 ## High-Level Chain
 
 ```text
-BuildProfile
-  -> BattleContext
-  -> AvailableResources
+BattleSnapshot
+  -> PlayerAvailableResources
+  -> ThreatAssessment
   -> ActionCandidate
-  -> LocalActionEvaluation
-  -> FeasibleOutcome
-  -> SceneObjectiveHypothesis
-  -> CandidateBattlePlan
-  -> ResourceExchangeEstimate
-  -> IrreversibleGainEstimate
+  -> ThreatResponseMatrix
+  -> PlanSearch
   -> PlanEvaluation
-  -> AgentDecision
+  -> BattlePlan
+  -> DecisionProvider
 ```
+
+This is a working strategy spine, not a promise that every design term becomes a class.
+
 
 ## BuildProfile
 
-BuildProfile describes what each player-built character is intended to do.
+BuildProfile describes what each player-built character is intended to do. It is a delayed optional concept until V3 Build Intent / User Intent.
 
 It is based on:
 
@@ -38,6 +38,21 @@ Current combat resources when relevant.
 It affects how actions and plans are interpreted.
 
 It does not directly choose actions.
+
+BuildProfile may later use keyword-based inference, but keyword extraction should start as helper logic or fields on BuildProfile rather than independent architecture layers.
+
+Examples:
+
+```text
+copy + cost reduction:
+  Copy actions may create setup future value.
+
+draw + light:
+  Resource recovery may have higher build fit.
+
+burn / bleed / smoke:
+  Status application may be proactive value.
+```
 
 ## BattleContext
 
@@ -84,6 +99,32 @@ Key pages currently available or unavailable.
 
 AvailableResources prevents the strategy from proposing objectives that the current hand, light, speed dice, or targeting state cannot support.
 
+## ThreatAssessment
+
+ThreatAssessment describes a visible enemy proposal for future loss.
+
+It may describe:
+
+```text
+HP damage threat.
+Stagger threat.
+Death threat.
+Status threat.
+Enemy buff or resource gain.
+Boss mechanic progress.
+Future tempo loss.
+```
+
+Important rule:
+
+```text
+A threat is not a command to defend.
+It is an exchange the enemy is trying to make.
+```
+
+The strategy may fully answer, partially answer, ignore, or accept a threat when
+another exchange is better for victory.
+
 ## ActionCandidate
 
 ActionCandidate represents one possible action for one player speed die.
@@ -123,83 +164,116 @@ Build fit.
 
 It does not decide whether the full scene plan is good.
 
-## FeasibleOutcome
+## ThreatResponseMatrix
 
-FeasibleOutcome describes what the current resources and evaluated actions make realistically possible this scene.
+ThreatResponseMatrix describes how each ActionCandidate responds to each
+ThreatAssessment.
 
-It is evidence, not a command.
-
-Examples:
+Formal shape:
 
 ```text
-Enemy A can probably be staggered.
-Enemy B can probably be killed.
-A dangerous enemy die can be intercepted.
-The team can recover resources safely.
-A build-specific mechanic can be advanced.
-An enemy buff or status die can be prevented.
-No safe kill is available this scene.
-No safe stagger is available this scene.
+R[T, AC]
+```
+
+Meaning:
+
+```text
+R[t, c] = response value of action candidate c against threat t.
+```
+
+This is not the complete value of the action candidate.
+
+An action may also have:
+
+```text
+damage value.
+stagger value.
+resource value.
+setup value.
+build fit.
+waste.
 ```
 
 Important rule:
 
 ```text
-Objectives must be derived from feasible outcomes, not from abstract wishes.
+ThreatResponseMatrix is input data for plan search and evaluation.
+It is not the final strategy.
 ```
+
+## FeasibleOutcome
+
+FeasibleOutcome is a delayed concept for variant generation.
+
+It may become useful when the system needs to derive possible scene directions before generating objective-oriented plan variants. Until then, feasibility can remain inside PlanSearch or PlanEvaluation calculations.
+
 
 ## SceneObjectiveHypothesis
 
-SceneObjectiveHypothesis is a hypothesis about what the current scene may try to accomplish.
+SceneObjectiveHypothesis is a delayed concept for V4 objective / feasible-outcome variants.
 
-It should be derived from FeasibleOutcomes.
+V2 should first search for and evaluate good selected action sets. Objective hypotheses should appear only when the system needs to generate and compare distinct objective-oriented variants.
 
-It may propose:
-
-```text
-Survive a dangerous scene.
-Stagger a specific enemy.
-Kill a specific enemy.
-Recover light or cards.
-Set up a build-specific mechanic.
-Spend resources for a payoff window.
-Prevent an enemy mechanic from advancing.
-```
-
-If later plan evaluation shows the objective is unsafe, unrealistic, or too expensive, the objective should be revised, downgraded, or rejected.
 
 ## CandidateBattlePlan
 
-CandidateBattlePlan is a full set of selected player actions generated under a SceneObjectiveHypothesis. CandidateBattlePlan is also the scene-level exchange proposal for the current scene.
+CandidateBattlePlan is not currently required as an independent object.
 
-It answers:
+For V2, a selected plan can be represented as:
 
 ```text
-If this is what the scene is trying to accomplish,
-which actions should each available speed die take?
+List<ActionCandidate>
 ```
 
-The same BattleContext may produce different plans for different objective hypotheses.
+Only introduce CandidateBattlePlan later if selected actions need plan ids, objective ids, validation state, serialization, evaluation cache, or other cross-step metadata.
+
 
 ## ResourceExchangeEstimate
 
-ResourceExchangeEstimate describes what a plan spends, risks, gains, and preserves.
+ResourceExchangeEstimate should not be an independent architecture layer for now.
 
-It may describe:
+The exchange idea is important, but spend / risk / gain / preserve values should first live as PlanEvaluation fields or calculation details.
+
+
+## PlanImpact
+
+PlanImpact is an optional future extraction from PlanEvaluation.
+
+PlanImpact describes the multi-dimensional strategic effect of a plan.
+
+First-version dimensions:
 
 ```text
-HP and stagger risk.
-Light spent or recovered.
-Cards spent or drawn.
-Speed dice and action opportunities used.
-Enemy HP damage.
-Enemy stagger pressure.
-Enemy action suppression.
-Future hand and light stability.
+terminalProgress
+actionEconomyChange
+resourceFlowChange
+riskChange
+setupFutureValue
+cost
+waste
 ```
 
-It exists so plan evaluation can reason about exchange quality instead of only local
-score or immediate damage.
+Rule:
+
+```text
+Events can be multi-impact.
+Dimensions must be single-reason.
+```
+
+The same combat event may project into several dimensions when it changes
+different strategic properties.
+
+Example:
+
+```text
+Enemy death:
+  terminalProgress because the enemy is removed from the win condition.
+  actionEconomyChange because enemy future actions are removed.
+  riskChange because enemy future threats are removed.
+  resourceFlowChange because future defensive resource pressure is reduced.
+```
+
+This is not double counting if each dimension answers a different question.
 
 ## IrreversibleGainEstimate
 
@@ -219,9 +293,16 @@ Prevented deaths, staggers, or mechanic failures.
 
 It distinguishes true victory-path progress from temporary numerical advantage.
 
+Current role:
+
+```text
+IrreversibleGainEstimate is a durability tag or explanation inside PlanImpact.
+It should not become a separate top-level bucket that double-counts the same value.
+```
+
 ## PlanEvaluation
 
-PlanEvaluation evaluates a CandidateBattlePlan under its SceneObjectiveHypothesis.
+PlanEvaluation evaluates a selected List<ActionCandidate> under the current BattleSnapshot and ThreatResponseMatrix.
 
 It answers:
 
@@ -231,7 +312,7 @@ Are the costs and risks acceptable?
 What happens if the plan fails?
 ```
 
-PlanEvaluation evaluates the objective-plan pair, not the plan alone.
+When V4 objective variants exist, PlanEvaluation may also evaluate objective context. V2 should not require a separate CandidateBattlePlan or ObjectivePlanPair.
 
 ## AgentDecision
 
@@ -249,24 +330,16 @@ Important rejected alternatives when useful.
 
 The program must validate the selected plan before execution.
 
-## Objective And Plan Relationship
+## Delayed Objective Relationship
 
-Objective and plan should be treated as a pair.
+Objective and plan pairing is a delayed V4 concern.
 
-```text
-SceneObjectiveHypothesis proposes what the scene may try to do.
-CandidateBattlePlan proposes how to do it.
-PlanEvaluation checks whether that objective-plan pair is actually coherent.
-AgentDecision chooses one evaluated objective-plan pair.
-```
-
-Important rule:
+V2 should keep the core loop simple:
 
 ```text
-The objective helps generate the plan.
-The plan evaluation validates or rejects the objective.
-The objective itself must be grounded in feasible outcomes.
+PlanSearch proposes selected ActionCandidate sets.
+PlanEvaluation judges those selected action sets.
+BattlePlan converts the chosen set into executable SpeedDiceAction entries.
 ```
 
-
-
+When objective variants are introduced later, objective context can be passed into PlanSearch and PlanEvaluation without immediately adding ObjectivePlanPair or objective-aware generator/evaluator classes.

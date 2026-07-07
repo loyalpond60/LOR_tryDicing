@@ -24,7 +24,92 @@ public static class BattleSnapshotReader
         List<BattleUnitModel> actors = BattleObjectManager.instance.GetAliveList(actorFaction);
         List<BattleUnitModel> targets = BattleObjectManager.instance.GetAliveList(targetFaction);
         List<DeclaredAction> declaredActions = ReadDeclaredActions(actors, targets);
-        return new BattleSnapshot(actorFaction, actors, targets, declaredActions, BuildPlanKey(actorFaction, actors, targets, declaredActions));
+        PlayerAvailableResources playerResources = ReadPlayerResources(actors);
+        return new BattleSnapshot(actorFaction, actors, targets, declaredActions, playerResources, BuildPlanKey(actorFaction, actors, targets, declaredActions));
+    }
+
+    private static PlayerAvailableResources ReadPlayerResources(List<BattleUnitModel> actors)
+    {
+        List<ActorAvailableResources> actorResources = new List<ActorAvailableResources>();
+        if (actors == null)
+        {
+            return new PlayerAvailableResources(actorResources);
+        }
+
+        foreach (BattleUnitModel actor in actors)
+        {
+            ActorAvailableResources actorResource = ReadActorResources(actor);
+            if (actorResource != null)
+            {
+                actorResources.Add(actorResource);
+            }
+        }
+
+        return new PlayerAvailableResources(actorResources);
+    }
+
+    private static ActorAvailableResources ReadActorResources(BattleUnitModel actor)
+    {
+        if (actor == null || actor.allyCardDetail == null || actor.cardSlotDetail == null)
+        {
+            return null;
+        }
+
+        List<BattleDiceCardModel> hand = actor.allyCardDetail.GetHand();
+        int playPoint = actor.cardSlotDetail.PlayPoint;
+        int reservedPlayPoint = actor.cardSlotDetail.ReservedPlayPoint;
+        int remainingLight = playPoint - reservedPlayPoint;
+        List<int> usableSpeedDiceIndices = ReadUsableSpeedDiceIndices(actor);
+        return new ActorAvailableResources(actor, playPoint, reservedPlayPoint, remainingLight, hand, usableSpeedDiceIndices);
+    }
+
+    private static List<int> ReadUsableSpeedDiceIndices(BattleUnitModel actor)
+    {
+        List<int> indices = new List<int>();
+        if (actor == null || actor.speedDiceResult == null)
+        {
+            return indices;
+        }
+
+        for (int speedDiceIndex = 0; speedDiceIndex < actor.speedDiceResult.Count; speedDiceIndex++)
+        {
+            if (CanUseSpeedDie(actor, speedDiceIndex))
+            {
+                indices.Add(speedDiceIndex);
+            }
+        }
+
+        return indices;
+    }
+
+    private static bool CanUseSpeedDie(BattleUnitModel actor, int speedDiceIndex)
+    {
+        if (actor == null || actor.speedDiceResult == null)
+        {
+            return false;
+        }
+
+        if (actor.turnState == BattleUnitTurnState.BREAK || actor.IsBreakLifeZero() || actor.IsKnockout())
+        {
+            return false;
+        }
+
+        if (speedDiceIndex < 0 || speedDiceIndex >= actor.speedDiceResult.Count)
+        {
+            return false;
+        }
+
+        if (actor.speedDiceResult[speedDiceIndex].breaked)
+        {
+            return false;
+        }
+
+        if (actor.cardSlotDetail == null || actor.cardSlotDetail.cardAry == null || speedDiceIndex >= actor.cardSlotDetail.cardAry.Count)
+        {
+            return false;
+        }
+
+        return actor.cardSlotDetail.cardAry[speedDiceIndex] == null;
     }
 
     private static List<DeclaredAction> ReadDeclaredActions(List<BattleUnitModel> actors, List<BattleUnitModel> targets)

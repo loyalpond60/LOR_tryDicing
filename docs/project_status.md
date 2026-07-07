@@ -25,11 +25,24 @@ The mod can currently:
 Load through the game's mod system.
 Install Harmony patches.
 Intercept BattleAllyCardDetail.PlayTurnAutoForPlayer(int idx).
-Assign a card and target for a player speed die.
+Assign a V2-selected card and target for a player speed die.
 Advance battle flow automatically through StageController phases.
-Fall back to vanilla behavior when the custom action selection fails.
+Randomly select abnormality passive / EGO rewards when emotion-level selection appears.
+Prevent invitation books from being consumed after a lost invitation battle.
+Intentionally skip speed dice not selected by the V2 plan instead of letting
+vanilla auto play fill them.
 Write tryDicing logs to both Unity Player.log and a workspace log file.
 Read first-version DeclaredAction summaries from already assigned speed-dice cards.
+Read first-version PlayerAvailableResources / ActorAvailableResources summaries for the planned side.
+Estimate first-version ordinary attack-dice HP and stagger damage with runtime HP/BP resistances.
+Assess first-version unanswered enemy threat from declared enemy actions using DamageEstimator min / expected / max estimates.
+Classify first-version threat levels with Guaranteed / Expected / Potential risk and HP/stagger pressure ratios.
+Build first-version ThreatResponseAssessment and ThreatResponseMatrix relationship data from BattleSnapshot for V2 plan search.
+Collect first-version team-wide ActionCandidate lists from PlayerAvailableResources for V2 plan search.
+Evaluate first-version selected action sets with PlanEvaluator / PlanEvaluation.
+Search first-version selected action sets with PlanSearch / PlanSearchResult.
+Execute first-version V2 PlanSearch results through TacticalPlanner.
+Block invalid planned actions with a final BattlePlanExecutor legality check before writing to game state.
 Enumerate first-version local action candidates.
 Evaluate first-version local action scores.
 Estimate first-version card dice power through a dedicated DiceProbabilityCalculator.
@@ -43,51 +56,49 @@ Mark complex passive/effect hooks such as dice power, targeting, resistance, dam
 Extract first-version passive method summaries for common conditions, formulas, numeric hints, card-id checks, and keyword-buff applications.
 ```
 
-The current strategy is V1 local-action prototype:
+The current strategy is V2 scene-plan prototype:
 
 ```text
-For each usable speed die:
-  Enumerate candidate card / target / target-slot actions.
-  Filter by hand, light, speed die, target, and simple page range rules.
-  Mark each candidate as Clash or OneSidedAttack.
-  Score each candidate with a first-version local evaluator.
-  Select the highest local score.
+For the planned side:
+  Read the current BattleSnapshot.
+  Collect independently legal ActionCandidate entries.
+  Build ThreatAssessment and ThreatResponseMatrix data.
+  Run first-version PlanSearch over resource-feasible action sets.
+  Convert selected ActionCandidates into SpeedDiceActions.
+  Leave speed dice unassigned when V2 does not select an action for them.
 ```
 
-This is still not the final strategy. It is the first explainable scoring pipeline.
+This is still not the final strategy. It is the first executable scene-plan
+pipeline.
 
-## Latest Smoke Test
+## Latest Build Verification
 
 Date:
 
 ```text
-2026-07-03
+2026-07-07
 ```
 
 Result:
 
 ```text
-Passed.
+Build passed.
 ```
 
 Verified:
 
 ```text
-tryDicing.log is created and written.
-AutoBattle advances battle phases.
-AutoPlayPatch intercepts PlayTurnAutoForPlayer(int idx).
-LegalActionFinder produces ActionCandidate entries.
-LocalActionEvaluator produces score and reason output.
-TacticalPlanner selects LocalAction results.
-ActionExecutor executes selected SpeedDiceAction entries.
-No ERROR lines were observed in the checked tryDicing.log sample.
+dotnet build src\tryDicing\tryDicing.csproj completed with 0 warnings and 0 errors.
+TacticalPlanner compiles with V2 PlanSearch as the executed plan source.
+AutoPlayController compiles with intentional V2 skip behavior.
+BattlePlanExecutor compiles with final action legality checks.
 ```
 
-Observed fallback:
+Runtime smoke status:
 
 ```text
-Some speed dice can still fall back to vanilla when no planned action exists.
-This is acceptable for the current smoke-test stage.
+Needs an in-game smoke test after copying the rebuilt mod assembly into the
+game mod folder.
 ```
 
 ## Important Constraints
@@ -170,12 +181,12 @@ docs/notes/battle_strategy_brainstorm.md
 
 ## Next Likely Implementation Step
 
-The next stable implementation target is to continue V1 from a working smoke-tested skeleton:
+The next stable implementation target is to smoke-test V2 execution in game:
 
 ```text
-Keep the current runnable pipeline stable.
-Improve observability where needed.
-Then extend one V1 component at a time.
+Confirm PlanSearch-selected actions are legal at execution time.
+Confirm unselected speed dice remain empty and are not filled by vanilla auto play.
+Inspect V2Plan and AutoPlay skip/block log lines.
 ```
 
-V1 should still be local and deterministic. Agent / MCP integration should wait until the local action and plan data structures are stable enough to expose cleanly.
+Agent / MCP integration should wait until the local action and plan data structures are stable enough to expose cleanly.

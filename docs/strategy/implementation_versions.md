@@ -131,32 +131,16 @@ Strategy behavior:
 For each usable speed die, select the highest local-evaluation action.
 ```
 
-## V1.5 Minimal BuildProfile
-
-Goal:
+Current runtime note:
 
 ```text
-Let local evaluation understand a minimal version of player build intent.
+This V1 behavior remains available as implementation support, but it is no
+longer the default TacticalPlanner execution path after V2 PlanSearch was wired
+into real action selection.
 ```
 
-Planned components:
 
-```text
-BuildProfile
-BuildProfileInferer
-Minimal UserBuildIntent override
-ResolvedBuildProfile
-KeyCardPolicy basics
-MechanicTags basics
-```
-
-Purpose:
-
-```text
-Prevent V1 scoring from becoming only a damage or clash score.
-```
-
-## V2 Scene Plan Evaluation
+## V2 Scene Plan Search + Plan Evaluation
 
 Goal:
 
@@ -167,15 +151,25 @@ Evaluate a full scene plan instead of selecting each speed die independently.
 Planned components:
 
 ```text
-CandidateBattlePlanGenerator
-PlanEvaluator
-ThreatCoverageEvaluator
-AllyRiskManagementEvaluator
-ResourceFutureEvaluator
-RedundancyWasteEvaluator
-OutcomeConfirmationEvaluator
-ExchangeEvaluator
-IrreversibleGainEvaluator
+ActionCandidateCollector
+ThreatResponseMatrix
+PlanSearch
+PlanEvaluation
+```
+
+Current partial implementation:
+
+```text
+ActionCandidateCollector implemented.
+ThreatResponseMatrix implemented.
+PlanEvaluation / PlanEvaluator implemented.
+PlanSearch / PlanSearchResult implemented as first-version threat-guided beam
+search.
+TacticalPlanner now executes selected PlanSearch actions.
+Speed dice not selected by V2 are intentionally skipped rather than filled by
+V1 greedy selection or vanilla auto play.
+BattlePlanExecutor performs final legality checks before writing selected
+actions into game state.
 ```
 
 Supported behavior:
@@ -188,16 +182,23 @@ Protect or intentionally risk allies based on payoff.
 Estimate whether resources remain playable next scene.
 Avoid redundant low-value actions.
 Prefer plans that create irreversible gains or prevent irreversible losses.
+Evaluate plans through terminalProgress, actionEconomyChange, resourceFlowChange, riskChange, setupFutureValue, cost, and waste.
+Flag unknown or complex mechanics as uncertainty instead of trying to simulate all game scripts.
 ```
 
 Strategy behavior:
 
 ```text
-Generate several candidate plans.
-Select the highest PlanEvaluation result.
+Collect independently legal ActionCandidate entries.
+Build a complete ThreatResponseMatrix, including None responses.
+Treat R[t, c] as threat-response value, not complete action value.
+Use threat-guided candidate pooling to reduce the search space before full plan search.
+Search for coherent action sets under per-actor resource constraints.
+Evaluate selected action sets with PlanEvaluation.
+Select the highest acceptable PlanEvaluation result.
 ```
 
-## V3 UserBuildIntent + ResolvedBuildProfile
+## V3 Build Intent / User Intent
 
 Goal:
 
@@ -221,7 +222,7 @@ Purpose:
 Preserve the player's deckbuilding and build-expression role while allowing the strategy to play according to that intent.
 ```
 
-## V4 FeasibleOutcome + Objective-Plan Pair
+## V4 Objective / Feasible Outcome Variants
 
 Goal:
 
@@ -234,9 +235,7 @@ Planned components:
 ```text
 FeasibleOutcomeDeriver
 SceneObjectiveHypothesisGenerator
-ObjectivePlanPair
-ObjectiveAwarePlanGenerator
-ObjectiveAwarePlanEvaluator
+Objective variant search hints
 ```
 
 Supported behavior:
@@ -278,7 +277,8 @@ Its purpose is to provide a non-LLM baseline and fallback.
 Goal:
 
 ```text
-Allow an external agent to participate in tactical decision making through MCP-backed tools.
+Allow an external agent to participate in uncertainty-heavy tactical decision
+making through MCP-backed tools.
 ```
 
 Planned components:
@@ -295,14 +295,19 @@ VariantRequest
 VariantResponse
 PlanProposal
 ProgramValidator
-PlanReEvaluator
 Timeout and fallback handling
 ```
 
 Purpose:
 
 ```text
-Let an agent choose among compressed, evaluated strategic alternatives using plan evaluations, exchange summaries and irreversible-gain estimates, without receiving raw game dumps or full candidate lists by default.
+Let an agent choose among compressed, evaluated strategic alternatives using
+plan evaluations, exchange summaries, uncertainty notes, and special-mechanic
+summaries, without receiving raw game dumps or full candidate lists by default.
+
+The agent handles high-level interpretation of uncertain passives, special
+states, boss mechanics, and exchange tradeoffs. It does not replace local
+legality, basic deterministic evaluation, validation, or execution.
 ```
 
 Agent control modes:
@@ -359,13 +364,57 @@ Build performance feedback.
 ```text
 V0 Current Working Prototype
   -> V1 Legal Action + Local Evaluation
-  -> V1.5 Minimal BuildProfile
-  -> V2 Scene Plan Evaluation
-  -> V3 UserBuildIntent + ResolvedBuildProfile
-  -> V4 FeasibleOutcome + Objective-Plan Pair
+  -> V2 Scene Plan Search + Plan Evaluation
+  -> V3 Build Intent / User Intent
+  -> V4 Objective / Feasible Outcome Variants
   -> V4.5 Mock / Rule AgentDecisionProvider
   -> V5 MCP Agent Integration
   -> V6 Advanced LoR Mechanics + Learning
+```
+
+
+## Abstraction Discipline
+
+Only promote a concept to an independent object when it must carry state across steps, serve as a boundary, be consumed by multiple modules, or isolate a clear responsibility.
+
+Otherwise keep it as a PlanEvaluation field, BuildProfile field, helper method, enum/list/tag, or delayed document concept.
+
+Near-term core:
+
+```text
+BattleSnapshot
+ActionCandidate
+ThreatAssessment
+ThreatResponseMatrix
+PlanSearch
+PlanEvaluation
+BattlePlan
+DecisionProvider
+```
+
+Delayed or optional concepts:
+
+```text
+BuildProfile
+UserBuildIntent
+FeasibleOutcome
+SceneObjectiveHypothesis
+PlanImpact
+KeyCardPolicy
+```
+
+Avoid independent architecture layers unless a concrete need appears:
+
+```text
+CandidateBattlePlan
+CandidateBattlePlanGenerator
+ResourceExchangeEstimate
+PlanImpactEvaluator
+ObjectiveAwarePlanGenerator
+ObjectiveAwarePlanEvaluator
+BuildKeywordProfile
+KeywordExtractor
+MechanicTags system
 ```
 
 Later design terms may be documented before they are implemented.

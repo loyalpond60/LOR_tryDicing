@@ -6,6 +6,7 @@ src/**/obj/
 
 # Runtime logs
 logs/*.log
+temp/
 
 # Packaged binaries copied for local mod testing
 mod/**/Assemblies/*.dll

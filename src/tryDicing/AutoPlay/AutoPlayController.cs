@@ -11,18 +11,24 @@ public static class AutoPlayController
 
         BattleSnapshot snapshot = BattleSnapshotReader.Read(actor.faction);
         BattlePlan plan = AutoPlayCache.GetOrCreate(snapshot);
+        if (plan == null)
+        {
+            TryDicingLogger.Error("AutoPlay skip: V2 plan is null. actorId=" + actor.id + ", idx=" + speedDiceIndex);
+            return true;
+        }
+
         SpeedDiceAction action = plan.Find(actor, speedDiceIndex);
         if (action == null)
         {
-            TryDicingLogger.Info("AutoPlay fallback: no planned action. actorId=" + actor.id + ", idx=" + speedDiceIndex);
-            return false;
+            TryDicingLogger.Info("AutoPlay skip: V2 plan has no action. actorId=" + actor.id + ", idx=" + speedDiceIndex);
+            return true;
         }
 
         if (!BattlePlanExecutor.Execute(action))
         {
-            TryDicingLogger.Info("AutoPlay fallback: planned action failed. actorId=" + actor.id + ", idx=" + speedDiceIndex);
+            TryDicingLogger.Error("AutoPlay blocked invalid V2 planned action. actorId=" + actor.id + ", idx=" + speedDiceIndex);
             action.MarkFailed();
-            return false;
+            return true;
         }
 
         action.MarkExecuted();

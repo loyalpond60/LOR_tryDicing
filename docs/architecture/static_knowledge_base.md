@@ -371,6 +371,22 @@ chapter
 sourceFiles
 ```
 
+Resistance note:
+
+```text
+The resistances exported in key_pages.json are base book/key-page resistances.
+They are useful lookup data, but they are not always the final battle resistance.
+
+At runtime, BattleUnitModel.GetResistHP(detail) and GetResistBP(detail) start
+from the book item resistance, then allow passives, emotion effects, and buffs to
+modify it. If the unit is staggered / broken, resistance normally becomes Weak
+unless a passive prevents that change.
+
+Damage and stagger estimates should therefore prefer runtime GetResistHP /
+GetResistBP when available, and use static resistances only as a fallback or
+pre-battle hint.
+```
+
 `emotion_cards.json` includes abnormality/emotion card definitions:
 
 ```text

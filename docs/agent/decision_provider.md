@@ -19,6 +19,7 @@ Read raw game objects directly.
 Invent illegal raw actions.
 Bypass validation.
 Execute game-state writes.
+Replace local legality checks or basic deterministic evaluation.
 ```
 
 DecisionProvider should treat plan choice as a constrained tactical judgment about
@@ -28,6 +29,46 @@ It may prefer a lower immediate score when that plan creates irreversible gain,
 prevents irreversible loss, or avoids a boss-mechanic trap that ordinary scoring
 underestimates.
 
+## AI Intervention Boundary
+
+The local system remains responsible for:
+
+```text
+Reading battle state.
+Reading declared enemy actions.
+Enumerating legal ActionCandidate entries.
+Building ThreatResponseMatrix.
+Checking resource legality.
+Evaluating basic damage, stagger, threat response, cost, waste, and risk.
+Validating every selected or proposed action before execution.
+```
+
+External AI is for uncertainty and strategic interpretation:
+
+```text
+Interpreting boss mechanics, unusual passives, stage effects, and special states
+that local heuristics only flag as uncertain.
+Judging whether an unresolved risk is acceptable for a larger exchange.
+Choosing among evaluated plans whose score differences depend on semantics the
+local evaluator cannot model reliably.
+Requesting safer, more aggressive, more resource-preserving, or mechanic-aware
+variants when supported.
+Explaining high-level tradeoffs and known risks.
+```
+
+External AI should receive compressed summaries:
+
+```text
+PlanEvaluation breakdowns.
+Threat and response summaries.
+Known uncertainty notes.
+Relevant passive / status / boss-mechanic summaries.
+Resource and legality summaries.
+```
+
+External AI should not receive control over raw game writes. Its output remains
+advisory until the local program validates and re-evaluates the resulting plan.
+
 ## Input
 
 First-version input should be a compact decision request:
@@ -36,12 +77,12 @@ First-version input should be a compact decision request:
 Battle summary.
 Build summaries.
 Available resource summary.
-Feasible outcomes.
-Candidate objective-plan pairs.
+Selected action-set candidates.
 Plan evaluation summaries.
 Resource exchange summaries.
-Irreversible gain and irreversible loss summaries.
 Known risks.
+Uncertainty notes.
+Relevant special-mechanic summaries.
 Timeout configuration.
 Fallback preference.
 ```

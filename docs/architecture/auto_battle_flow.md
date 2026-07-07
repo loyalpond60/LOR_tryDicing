@@ -145,6 +145,137 @@ RoundEndPhase:
   cleanup, delayed effects, and then returns to RoundStartPhase_UI.
 ```
 
+## Speed Ordering And Dice Interaction
+
+Source verified with:
+
+```text
+tools/dnSpy-netframework/dnSpy.Console.exe
+F:\SteamLibrary\steamapps\common\Library Of Ruina\LibraryOfRuina_Data\Managed\Assembly-CSharp.dll
+```
+
+Relevant original types:
+
+```text
+StageController
+BattleParryingManager
+BattleOneSidePlayManager
+BattlePlayingCardDataInUnitModel
+```
+
+Assigned cards are first collected and sorted in `ArrangeCardsPhase`.
+
+Ordering rule for `BattlePlayingCardDataInUnitModel`:
+
+```text
+1. Far cards sort before non-Far cards.
+2. Higher speedDiceResultValue sorts before lower speedDiceResultValue.
+3. If two cards have the same owner and same speed:
+     lower slotOrder sorts first.
+4. If two cards have different owners and the same speed:
+     the comparer returns 0, so strategy code should not assume a stable
+     deterministic tie-break between those units.
+```
+
+During `WaitUnitsArrive`, the engine builds the set of current highest-speed
+arrived units. A unit can start resolution when:
+
+```text
+It has the current highest speed among active actions, or
+its card is Special, or
+its card is Far.
+```
+
+When an arrived unit resolves its current action:
+
+```text
+targetSlotAction = target.cardSlotDetail.cardAry[targetSlotOrder]
+
+If targetSlotAction exists, still has dice, targets the arrived unit, and both
+units are not broken:
+  StartParrying(arrivedAction, targetSlotAction)
+
+Else if the target has a kept defense/evasion die:
+  StartParrying(arrivedAction, target.keepCard)
+
+Else:
+  StartOneSidePlay(arrivedAction)
+```
+
+### Clash Dice Results
+
+`BattleParryingManager` compares one current die from each card at a time.
+
+Dice result comparison:
+
+```text
+attackerDie - defenderDie >= 1:
+  first team wins this die
+
+attackerDie - defenderDie <= -1:
+  second team wins this die
+
+attackerDie == defenderDie:
+  draw
+
+Evasion vs Evasion:
+  draw
+```
+
+Parrying dice type:
+
+```text
+Slash / Penetrate / Hit:
+  Attack
+
+Guard / Evasion / None:
+  Defense
+```
+
+Important interaction cases:
+
+```text
+Attack vs Attack:
+  The winning attack die deals damage.
+  A draw triggers draw-parrying hooks and neither attack wins by dice value.
+
+Attack vs Guard:
+  If attack wins, guard value is used as damage reduction before damage.
+  If guard wins, guard may deal deflect damage and triggers defense-win hooks.
+  A draw triggers draw-parrying hooks.
+
+Attack vs Evasion:
+  If attack wins, attack deals damage.
+  If evasion wins, the defender recovers break by the evasion dice value and
+  may preserve bonus evasion.
+  A draw triggers draw-parrying hooks.
+
+Defense vs Defense:
+  A winner can trigger defense-win behavior such as deflect damage or break
+  recovery depending on Guard/Evasion details.
+  A draw triggers draw-parrying hooks.
+```
+
+After each parrying action, used dice normally advance with `NextDice()`. Bonus
+attack/evasion dice may be preserved for another comparison. Kept defense dice
+can be returned to the front of the queue before parrying ends.
+
+### One-Sided Dice Results
+
+`BattleOneSidePlayManager` resolves one acting card without an opposing active
+card on the target slot.
+
+One-sided behavior:
+
+```text
+Attack dice:
+  roll, update final value, and call GiveDamage(target)
+
+Defense dice:
+  do not attack the target.
+  are added to owner.cardSlotDetail.keepCard for possible later defense.
+```
+
 ## Card Assignment Versus Resolution
 
 Card assignment and combat resolution are separate engine stages.

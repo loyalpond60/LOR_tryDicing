@@ -19,6 +19,12 @@ src/tryDicing/AutoPlay/
 src/tryDicing/AutoBattle/
   Advances combat phases and keeps battle flow moving.
 
+src/tryDicing/AutoEmotion/
+  Handles automatic emotion-level reward choices such as abnormality passives and EGO cards.
+
+src/tryDicing/Progression/
+  Holds narrow campaign or reception-flow quality-of-life patches.
+
 mod/tryDicing/
   Packaged mod layout copied into the game by the user.
 
@@ -169,12 +175,12 @@ ActionExecutor
 Next likely architectural growth:
 
 ```text
-CandidateBattlePlanGenerator
+PlanSearch
 PlanEvaluator
 DecisionProvider
 ```
 
-The external agent should receive compressed candidate-plan data, not raw battle
+The external agent should receive compressed evaluated-plan data, not raw battle
 dumps or full static knowledge.
 
 ## Maintenance Rule

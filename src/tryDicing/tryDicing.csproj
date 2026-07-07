@@ -53,6 +53,8 @@
   <ItemGroup>
     <Compile Include="Initializer.cs" />
     <Compile Include="TryDicingLogger.cs" />
+    <Compile Include="Progression\InvitationBookLossPatch.cs" />
+    <Compile Include="AutoEmotion\AutoEmotionChoicePatch.cs" />
     <Compile Include="AutoBattle\AutoBattleActionInvoker.cs" />
     <Compile Include="AutoBattle\AutoBattleController.cs" />
     <Compile Include="AutoBattle\AutoBattleProbePatch.cs" />
@@ -61,6 +63,8 @@
     <Compile Include="AutoBattle\AutoBattleStateReader.cs" />
     <Compile Include="AutoPlay\ActionExecutor.cs" />
     <Compile Include="AutoPlay\ActionCandidate.cs" />
+    <Compile Include="AutoPlay\ActionCandidateCollector.cs" />
+    <Compile Include="AutoPlay\ActorAvailableResources.cs" />
     <Compile Include="AutoPlay\AutoPlayCache.cs" />
     <Compile Include="AutoPlay\AutoPlayController.cs" />
     <Compile Include="AutoPlay\AutoPlayLog.cs" />
@@ -69,6 +73,8 @@
     <Compile Include="AutoPlay\BattlePlanExecutor.cs" />
     <Compile Include="AutoPlay\BattleSnapshot.cs" />
     <Compile Include="AutoPlay\BattleSnapshotReader.cs" />
+    <Compile Include="AutoPlay\DamageEstimate.cs" />
+    <Compile Include="AutoPlay\DamageEstimator.cs" />
     <Compile Include="AutoPlay\DeclaredAction.cs" />
     <Compile Include="AutoPlay\DiceProbabilityCalculator.cs" />
     <Compile Include="AutoPlay\DiceProbabilityProfile.cs" />
@@ -78,8 +84,21 @@
     <Compile Include="AutoPlay\LegalActionSearchResult.cs" />
     <Compile Include="AutoPlay\LocalActionEvaluation.cs" />
     <Compile Include="AutoPlay\LocalActionEvaluator.cs" />
+    <Compile Include="AutoPlay\PlanEvaluation.cs" />
+    <Compile Include="AutoPlay\PlanEvaluator.cs" />
+    <Compile Include="AutoPlay\PlanSearch.cs" />
+    <Compile Include="AutoPlay\PlanSearchResult.cs" />
+    <Compile Include="AutoPlay\PlayerAvailableResources.cs" />
+    <Compile Include="AutoPlay\OwnerDamageOutcome.cs" />
+    <Compile Include="AutoPlay\ResponseMechanism.cs" />
     <Compile Include="AutoPlay\SpeedDiceAction.cs" />
     <Compile Include="AutoPlay\TacticalPlanner.cs" />
+    <Compile Include="AutoPlay\ThreatAssessment.cs" />
+    <Compile Include="AutoPlay\ThreatAssessor.cs" />
+    <Compile Include="AutoPlay\ThreatLevel.cs" />
+    <Compile Include="AutoPlay\ThreatResponseAssessment.cs" />
+    <Compile Include="AutoPlay\ThreatResponseAssessor.cs" />
+    <Compile Include="AutoPlay\ThreatResponseMatrix.cs" />
   </ItemGroup>
 
   <Import Project="$(MSBuildToolsPath)\Microsoft.CSharp.targets" />

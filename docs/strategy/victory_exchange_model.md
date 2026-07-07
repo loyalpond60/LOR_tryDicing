@@ -238,6 +238,33 @@ What happens if the plan's primary conversion fails?
 This keeps plan evaluation broader than local damage, clash success, or immediate
 survival.
 
+PlanEvaluation should avoid treating these questions as mutually exclusive
+buckets.
+
+Current scoring principle:
+
+```text
+Events can be multi-impact.
+Dimensions must be single-reason.
+```
+
+A single event can affect several strategic dimensions when it changes different
+properties of the battle.
+
+Example:
+
+```text
+Enemy death:
+  terminalProgress because the enemy is removed from the win condition.
+  actionEconomyChange because enemy future actions are removed.
+  riskChange because enemy future threats are removed.
+  resourceFlowChange because future defensive pressure is reduced.
+```
+
+Irreversibility should usually be recorded as durability or explanation for a
+PlanImpact dimension, not as an extra score bucket that rewards the same reason
+again.
+
 ## Agent And Model Implication
 
 Agents, LLMs, or neural models should not be treated as the intelligence itself.

@@ -49,13 +49,57 @@ AutoPlayPatch
   -> AutoPlayController
   -> BattleSnapshotReader
   -> TacticalPlanner
-       -> LegalActionFinder
-            -> LegalActionSearchResult
-                 -> ActionCandidate list
-                 -> LegalActionSearchReport
-       -> LocalActionEvaluator
+       -> PlanSearch
+            -> ThreatResponseMatrix
+                 -> ThreatAssessor
+                 -> ActionCandidateCollector
+                      -> LegalActionFinder
+                 -> ThreatResponseAssessor
+            -> PlanEvaluator
   -> BattlePlanExecutor
   -> ActionExecutor
+```
+
+## Strategy Vocabulary
+
+When discussing strategy, use these three concepts by default:
+
+```text
+DeclaredAction:
+  What a unit has already assigned to a speed die.
+
+ThreatAssessment:
+  How dangerous an opposing DeclaredAction is if unanswered.
+
+ThreatResponseAssessment:
+  How one player ActionCandidate relates to one ThreatAssessment.
+```
+
+Support terms are implementation details. Introduce them only when the current
+discussion needs the exact field or helper:
+
+```text
+DamageEstimate:
+  Damage range used by threat and response assessment.
+
+ResponseMechanism:
+  The way a candidate responds to a threat.
+
+OwnerDamageOutcome:
+  The result when a candidate attacks the threat owner.
+
+ThreatResponseMatrix:
+  A collection of ThreatAssessment x ActionCandidate response assessments.
+  It is V2 planning foundation data, not a planner by itself.
+```
+
+Short architecture rule:
+
+```text
+DeclaredAction is observed scene data.
+ThreatAssessment is derived danger data.
+ThreatResponseAssessment is derived relationship data.
+ThreatResponseMatrix is only the collection of those relationships.
 ```
 
 ## Current Verification Status
@@ -71,7 +115,7 @@ Verified behavior:
 ```text
 The original PlayTurnAutoForPlayer(int idx) hook is intercepted.
 The custom planner creates ActionCandidate entries.
-The local evaluator creates score and reason output.
+PlanSearch creates a first-version V2 scene plan.
 Selected SpeedDiceAction entries are executed.
 Selection details are written to tryDicing.log.
 ```
@@ -101,7 +145,9 @@ The original vanilla auto-play behavior.
 Effect:
 
 ```text
-Runs custom autoplay first. If custom autoplay succeeds, skip vanilla behavior. If it fails, allow vanilla behavior.
+Runs custom autoplay first. If custom autoplay executes or intentionally skips a
+speed die, skip vanilla behavior. Only unrecoverable hook/setup failures should
+fall back to vanilla behavior.
 ```
 
 ### AutoPlayController
@@ -127,7 +173,10 @@ The current battle snapshot and cached scene plan.
 Effect:
 
 ```text
-Coordinates reading battle state, obtaining a plan, and executing the action for the requested speed die.
+Coordinates reading battle state, obtaining a cached V2 plan, and executing the
+action for the requested speed die. If the V2 plan has no action for that speed
+die, the controller treats it as an intentional skip and prevents vanilla auto
+play from filling it.
 ```
 
 ### BattleSnapshotReader
@@ -156,6 +205,14 @@ Effect:
 Creates a simplified snapshot that custom strategy code can read without spreading game-object access everywhere.
 ```
 
+Current scene-model boundary:
+
+```text
+BattleSnapshot is the current SceneModel.
+Do not add a separate SceneModel class until there is a concrete need to separate
+runtime raw references from a compressed strategy-facing model.
+```
+
 Current declared-action read:
 
 ```text
@@ -164,12 +221,104 @@ unit.cardSlotDetail.cardAry and stores them as DeclaredAction summaries.
 DeclaredAction is observed scene data only. It does not assign threat scores.
 ```
 
+Current player-resource read:
+
+```text
+BattleSnapshotReader reads a PlayerAvailableResources summary for the planned side.
+PlayerAvailableResources is a team-level wrapper around ActorAvailableResources.
+ActorAvailableResources keeps per-actor resource ownership:
+  hand
+  playPoint
+  reservedPlayPoint
+  remainingLight
+  usable speed dice indices
+ActionCandidateCollector uses this resource summary to produce V2 plan-search
+candidates.
+```
+
+Current damage-estimate helper:
+
+```text
+DamageEstimator estimates ordinary attack-dice HP and stagger damage using
+runtime target.GetResistHP(detail) and target.GetResistBP(detail).
+It reports min / expected / max estimates so threat logic can distinguish
+guaranteed, expected, and potential risk.
+It is a shared helper for local-action, threat, and plan evaluation.
+It is approximate. It feeds ThreatAssessor, ThreatResponseAssessor, PlanSearch
+candidate priority, and PlanEvaluator scoring.
+```
+
+Current threat-assessment helper:
+
+```text
+ThreatAssessor reads opposing DeclaredAction entries and estimates unanswered
+enemy threat. It uses DamageEstimator so HP pressure uses HP resistance and
+stagger pressure uses BP resistance.
+ThreatAssessment stores HP / stagger pressure ratios and separates
+Guaranteed / Expected / Potential kill and stagger risk.
+Current first-version level rules:
+  Guaranteed or Expected kill / stagger risk is Critical.
+  Potential kill / stagger risk is Major.
+  HP or stagger pressure ratio >= 0.75 is Critical.
+  HP or stagger pressure ratio >= 0.40 is Major.
+  AttackDiceCount is retained for diagnostics but does not currently raise level
+  or score, because multiple attack dice are already reflected in total damage.
+ThreatAssessment is derived evaluation data, not observed scene data.
+The current V2 planner uses ThreatAssessment through ThreatResponseMatrix and
+PlanSearch.
+```
+
+Current threat-response helper:
+
+```text
+ThreatResponseAssessor compares one ThreatAssessment with one ActionCandidate.
+It produces ThreatResponseAssessment relationship data.
+ResponseMechanism and OwnerDamageOutcome are fields inside that relationship;
+they should not be treated as separate strategy layers.
+ThreatResponseMatrix groups those pairwise assessments for future full-scene
+plan evaluation. It can be built from a BattleSnapshot by combining
+ThreatAssessor and ActionCandidateCollector output. It does not choose actions
+by itself; PlanSearch consumes it when building the V2 plan.
+ThreatResponseAssessment is derived relationship data.
+```
+
+Current plan-evaluation helper:
+
+```text
+PlanEvaluator evaluates a selected List<ActionCandidate> with BattleSnapshot and
+ThreatResponseMatrix. It returns PlanEvaluation with:
+  IsLegal
+  terminalProgress
+  actionEconomyChange
+  resourceFlowChange
+  riskChange
+  setupFutureValue
+  cost
+  waste
+  totalScore
+  explanation
+It does not generate action sets by itself. PlanSearch uses it to rank selected
+action sets.
+```
+
+Current plan-search helper:
+
+```text
+PlanSearch performs first-version threat-guided beam search over ActionCandidate
+entries. It builds a ThreatResponseMatrix, creates a prioritized candidate pool,
+uses PlanEvaluator to score selected action sets, and returns PlanSearchResult.
+TacticalPlanner now converts its selected ActionCandidate entries into
+SpeedDiceAction entries for execution.
+If PlanSearch selects no action for a speed die, that speed die is intentionally
+left unused instead of being filled by V1 or vanilla auto play.
+```
+
 ### TacticalPlanner
 
 Scope:
 
 ```text
-Current prototype whole-scene plan using first-version local action scoring.
+Current prototype whole-scene V2 plan using PlanSearch.
 ```
 
 Subject:
@@ -181,13 +330,42 @@ BattleSnapshot.
 Object:
 
 ```text
-Candidate player speed dice, ActionCandidates, LocalActionEvaluations, and selected SpeedDiceActions.
+BattleSnapshot, PlanSearchResult, selected ActionCandidates, and selected
+SpeedDiceActions.
 ```
 
 Effect:
 
 ```text
-For each usable player speed die, asks LegalActionFinder for candidates, asks LocalActionEvaluator to score them, then puts the highest-scoring action into the BattlePlan.
+Runs PlanSearch for the scene and converts legal selected ActionCandidates into
+BattlePlan actions. It does not use V1 greedy fill for unselected speed dice.
+```
+
+### ActionCandidateCollector
+
+Scope:
+
+```text
+All player-side usable speed dice in the current BattleSnapshot.
+```
+
+Subject:
+
+```text
+PlayerAvailableResources and existing LegalActionFinder output.
+```
+
+Object:
+
+```text
+A flat list of independently legal ActionCandidate entries.
+```
+
+Effect:
+
+```text
+Collects candidates for response-matrix and plan-search work. It does not score,
+select, spend light, or remove cards.
 ```
 
 ### LegalActionFinder

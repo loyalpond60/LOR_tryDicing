@@ -107,6 +107,18 @@ BattleSnapshotReader -> BattleSnapshot
 Current implementation reads only a subset of this state. The model is broader than
 the current code, but code should grow toward this model incrementally.
 
+Current naming decision:
+
+```text
+BattleSnapshot is the current SceneModel.
+```
+
+This means the current implementation should keep observed scene data, declared
+actions, and planned-side resource summaries on `BattleSnapshot` instead of adding
+a separate `SceneModel` wrapper. A separate `SceneModel` should only be introduced
+later if the project needs a compressed strategy-facing model that no longer
+directly exposes raw game object references.
+
 ## Action: a
 
 A single speed-dice action is:
@@ -268,9 +280,11 @@ when the current hand, light, speed, or target state cannot support that objecti
 
 ## Objective Hypothesis
 
-`SceneObjectiveHypothesis` is not a hard command.
+Objective hypotheses are delayed until the strategy needs V4 objective / feasible-outcome variants.
 
-It is a temporary explanation of what a feasible plan may be trying to accomplish.
+For V2, the system should first search for selected action sets and evaluate whether they create a good scene exchange under current resources and threats.
+
+Later, `SceneObjectiveHypothesis` may explain what a feasible plan variant is trying to accomplish. It is not a hard command.
 
 Examples:
 
@@ -291,21 +305,34 @@ Important rule:
 Objective hypotheses must be grounded in feasible outcomes and available resources.
 ```
 
-Objective and plan form a pair:
+Current simplified relationship:
+
+```text
+PlanSearch:
+  Selects a List<ActionCandidate>.
+
+PlanEvaluation:
+  Judges whether that selected action set is coherent, affordable, and acceptable.
+
+BattlePlan:
+  Converts the chosen selected actions into executable SpeedDiceAction entries.
+```
+
+Future objective-aware relationship:
 
 ```text
 SceneObjectiveHypothesis:
-  What this scene might try to accomplish.
+  What this scene variant might try to accomplish.
 
-CandidateBattlePlan:
+selected List<ActionCandidate>:
   How this scene attempts to accomplish it.
 
 PlanEvaluation:
-  Whether that objective-plan pair is coherent, affordable, and acceptable.
+  Whether that objective context and selected action set are coherent, affordable, and acceptable.
 ```
 
-If evaluation shows that an objective is unsafe, unrealistic, or too expensive, the
-objective should be revised, downgraded, or rejected.
+Do not introduce CandidateBattlePlan or ObjectivePlanPair until selected actions need plan ids, objective ids, validation state, serialization, evaluation cache, or similar cross-step metadata.
+
 
 ## Evaluation
 
@@ -459,7 +486,8 @@ Core model mapping:
 
 ```text
 S_t:
-  BattleSnapshot, including first-version DeclaredAction summaries for already assigned cards.
+  BattleSnapshot, including first-version DeclaredAction summaries for already assigned cards
+  and PlayerAvailableResources summaries for the planned side.
 
 a:
   ActionCandidate

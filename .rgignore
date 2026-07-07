@@ -13,6 +13,7 @@ mod/**/Assemblies/*.pdb
 
 # Runtime output.
 logs/
+temp/dnspy_verify/
 
 # Large static knowledge JSON should be opened by exact file only.
 generated/static_knowledge/*.json

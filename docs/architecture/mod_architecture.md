@@ -76,23 +76,54 @@ Keep Unity-level errors visible in Player.log while giving strategy debugging a 
 
 AutoPlay handles card and target assignment for player speed dice.
 
-Current files:
+Current files by responsibility:
 
 ```text
-src/tryDicing/AutoPlay/AutoPlayPatch.cs
-src/tryDicing/AutoPlay/AutoPlayController.cs
-src/tryDicing/AutoPlay/DeclaredAction.cs
-src/tryDicing/AutoPlay/BattleSnapshotReader.cs
-src/tryDicing/AutoPlay/ActionCandidate.cs
-src/tryDicing/AutoPlay/InteractionType.cs
-src/tryDicing/AutoPlay/LegalActionFinder.cs
-src/tryDicing/AutoPlay/LocalActionEvaluation.cs
-src/tryDicing/AutoPlay/LocalActionEvaluator.cs
-src/tryDicing/AutoPlay/DiceProbabilityCalculator.cs
-src/tryDicing/AutoPlay/DiceProbabilityProfile.cs
-src/tryDicing/AutoPlay/TacticalPlanner.cs
-src/tryDicing/AutoPlay/BattlePlanExecutor.cs
-src/tryDicing/AutoPlay/ActionExecutor.cs
+Hook / orchestration:
+  AutoPlayPatch.cs
+  AutoPlayController.cs
+
+Observed scene data:
+  BattleSnapshot.cs
+  BattleSnapshotReader.cs
+  DeclaredAction.cs
+  PlayerAvailableResources.cs
+  ActorAvailableResources.cs
+
+Candidates and local scoring:
+  ActionCandidate.cs
+  ActionCandidateCollector.cs
+  InteractionType.cs
+  LegalActionFinder.cs
+  LegalActionSearchReport.cs
+  LegalActionSearchResult.cs
+  LocalActionEvaluation.cs
+  LocalActionEvaluator.cs
+  PlanEvaluation.cs
+  PlanEvaluator.cs
+  PlanSearch.cs
+  PlanSearchResult.cs
+
+Assessment helpers:
+  DamageEstimate.cs
+  DamageEstimator.cs
+  DiceProbabilityCalculator.cs
+  DiceProbabilityProfile.cs
+  ThreatAssessment.cs
+  ThreatAssessor.cs
+  ThreatLevel.cs
+  ThreatResponseAssessment.cs
+  ThreatResponseAssessor.cs
+  ThreatResponseMatrix.cs
+  ResponseMechanism.cs
+  OwnerDamageOutcome.cs
+
+Planning / execution:
+  TacticalPlanner.cs
+  BattlePlan.cs
+  SpeedDiceAction.cs
+  BattlePlanExecutor.cs
+  ActionExecutor.cs
 ```
 
 Current responsibility split:
@@ -107,23 +138,69 @@ AutoPlayController:
 BattleSnapshotReader:
   Reads current battle state from original game objects.
 
+PlayerAvailableResources:
+  Summarizes player-side team resources for the current assignment scene.
+
+ActorAvailableResources:
+  Summarizes one actor's hand, light, and usable speed dice while preserving resource ownership.
+
 DeclaredAction:
   Summarizes an already assigned battle page on a unit speed die as observed scene data.
 
 LegalActionFinder:
   Lists first-version legal candidate actions for one actor speed die.
 
+ActionCandidateCollector:
+  Uses PlayerAvailableResources to collect independently legal candidates across
+  all player-side usable speed dice for current V2 plan search.
+
 LocalActionEvaluator:
   Scores one ActionCandidate and returns an explainable LocalActionEvaluation.
+  It remains V1 support code and is not the current TacticalPlanner execution
+  path.
+
+PlanEvaluator:
+  Scores a selected List<ActionCandidate> as a full-scene exchange using
+  BattleSnapshot and ThreatResponseMatrix. It is not a searcher; PlanSearch uses
+  it to rank selected action sets.
+
+PlanSearch:
+  Performs first-version threat-guided beam search over candidate action sets.
+  It uses PlanEvaluator for scoring and returns PlanSearchResult. TacticalPlanner
+  converts its selected actions into the executable BattlePlan.
+
+DamageEstimator:
+  Estimates first-version HP and stagger damage using runtime HP/BP resistances.
 
 DiceProbabilityCalculator:
   Estimates first-version dice power from a battle page's dice list.
 
+ThreatAssessment:
+  Derived danger data for one opposing DeclaredAction if unanswered.
+
+ThreatResponseAssessment:
+  Derived relationship data for one ThreatAssessment and one ActionCandidate.
+  Its mechanism and owner-damage outcome are fields, not separate strategy layers.
+
+ThreatAssessor:
+  Estimates first-version unanswered enemy threat from declared enemy actions and DamageEstimator output.
+
+ThreatResponseAssessor:
+  Builds one ThreatResponseAssessment.
+
+ThreatResponseMatrix:
+  Groups all ThreatAssessment x ActionCandidate relationship records for V2
+  full-scene plan evaluation. It can build the full relationship table from a
+  BattleSnapshot, but it does not choose actions by itself.
+
 TacticalPlanner:
-  Coordinates candidate enumeration, local evaluation, and final action selection.
+  Runs PlanSearch and converts legal selected ActionCandidates into
+  SpeedDiceActions. It does not fill unselected speed dice with V1 greedy
+  actions.
 
 BattlePlanExecutor:
-  Finds the planned action for the requested speed die.
+  Validates the planned action again at execution time before sending it to
+  ActionExecutor.
 
 ActionExecutor:
   Applies the selected card and target to the original game object.
@@ -168,6 +245,53 @@ AutoBattleActionInvoker:
   Calls original StageController methods through reflection.
 ```
 
+## AutoEmotion Layer
+
+AutoEmotion handles automatic emotion-level rewards such as abnormality passive
+cards and EGO cards. It is separate from AutoPlay because it responds to a
+different game decision point.
+
+Current files:
+
+```text
+src/tryDicing/AutoEmotion/AutoEmotionChoicePatch.cs
+```
+
+Current responsibility split:
+
+```text
+AutoEmotionChoicePatch:
+  Hooks LevelUpUI.Init and LevelUpUI.InitEgo after the original game has already
+  generated candidate abnormality / EGO choices. For the current first version,
+  it randomly selects one candidate, applies it through the original
+  StageLibraryFloorModel.OnPickPassiveCard / OnPickEgoCard methods, then hides
+  the selection UI. SelectOne abnormality passives currently choose a random
+  living player unit. Future strategy should replace only the random choice
+  step, not move this flow into AutoPlay.
+```
+
+## Progression / QoL Layer
+
+Progression patches handle narrow campaign or reception-flow behavior that is
+outside battle strategy.
+
+Current files:
+
+```text
+src/tryDicing/Progression/InvitationBookLossPatch.cs
+```
+
+Current responsibility split:
+
+```text
+InvitationBookLossPatch:
+  Hooks StageController.GameOver. When an invitation battle is lost, it clears
+  StageController.UsedBooks before the original loss cleanup removes those books
+  from DropBookInventoryModel. This prevents the reception invitation books from
+  being consumed by test losses, without changing normal book burning or other
+  DropBookInventoryModel.RemoveBook callers.
+```
+
 ## Strategy Boundary
 
 The current mod already has a working control pipeline.
@@ -179,7 +303,7 @@ BattleContextReader
 AvailableResourceReader
 LegalActionFinder
 LocalActionEvaluator
-CandidateBattlePlanGenerator
+PlanSearch
 PlanEvaluator
 DecisionProvider
 ActionExecutor

@@ -99,6 +99,40 @@ winning future that would otherwise be closed?
 
 Detailed definitions live in `victory_exchange_model.md`.
 
+## Threat Response And Plan Impact
+
+Visible enemy actions should be treated as enemy exchange proposals.
+
+```text
+Threat = an enemy proposal for future loss.
+Response = whether the player should pay resources to answer that threat.
+```
+
+The system should not maximize threat coverage by itself.
+
+It should search for the best victory-oriented exchange set:
+
+```text
+fully answer important threats when worth it
+partially answer threats when enough
+ignore low-value threats
+accept some threats when a larger victory-progress exchange is available
+```
+
+Plan evaluation should use dimensions, not mutually exclusive event buckets.
+
+```text
+Events can be multi-impact.
+Dimensions must be single-reason.
+```
+
+Example:
+
+```text
+Killing an enemy can improve terminal progress, future action economy, risk, and
+future resource pressure at the same time.
+```
+
 ## Two Evaluation Layers
 
 ### Local Action
